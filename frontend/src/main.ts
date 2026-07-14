@@ -7,6 +7,7 @@ import { startPlayback, type PlaybackHandle } from './render/renderLoop'
 import { setupControls } from './ui/controls'
 import { setupSkinUpload } from './ui/skinUpload'
 import type { LoadedSkin } from './skin/skinLoader'
+import { attachUiSound, playToggleOn, playToggleOff } from './ui/sound'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <h1>osu!Peek</h1>
@@ -14,7 +15,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 
   <form id="beatmap-form">
     <input name="query" type="text" placeholder="Paste a beatmap or beatmapset URL, or an ID" size="50" />
-    <button type="submit">Preview</button>
+    <button type="submit" class="slant-btn">Preview</button>
   </form>
 
   <p id="status"></p>
@@ -30,6 +31,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 const form = document.querySelector<HTMLFormElement>('#beatmap-form')!
 const statusEl = document.querySelector<HTMLParagraphElement>('#status')!
 const resultEl = document.querySelector<HTMLDivElement>('#result')!
+
+attachUiSound(form.querySelector<HTMLButtonElement>('button[type="submit"]')!)
 
 let currentSkin: LoadedSkin | null = null
 setupSkinUpload(
@@ -64,7 +67,7 @@ function renderResult(beatmap: BeatmapLookupResult): void {
     <p id="parse-summary" class="muted">Parsing beatmap file...</p>
     <canvas id="playfield" width="640" height="480"></canvas>
     <div class="playback-controls">
-      <button id="play-btn" disabled>&#9654; Play</button>
+      <button id="play-btn" class="slant-btn" disabled>&#9654; Play</button>
       <input id="seek-bar" type="range" min="0" max="1000" value="0" />
       <span id="time-label">0:00 / 0:00</span>
       <div class="speed-buttons">
@@ -123,12 +126,15 @@ setupBeatmapForm(form, async (query) => {
           if (nowPlaying !== wasPlaying) {
             wasPlaying = nowPlaying
             playBtn.innerHTML = nowPlaying ? '&#10074;&#10074; Pause' : '&#9654; Play'
+            if (nowPlaying) playToggleOn()
+            else playToggleOff()
           }
         },
       })
       controls.bind(currentPlayback)
 
       playBtn.disabled = false
+      attachUiSound(playBtn, { click: false })
       playBtn.addEventListener('click', () => {
         if (!currentPlayback) return
         if (currentPlayback.isPlaying()) {

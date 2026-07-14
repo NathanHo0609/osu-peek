@@ -1,4 +1,5 @@
 import type { PlaybackHandle } from '../render/renderLoop'
+import { attachUiSound } from './sound'
 
 export interface Controls {
   onTick: (mapTimeMs: number, maxTimeMs: number) => void
@@ -40,6 +41,7 @@ export function setupControls(container: HTMLElement): Controls {
       })
 
       speedButtons.forEach((btn) => {
+        attachUiSound(btn)
         btn.addEventListener('click', () => {
           const rate = Number(btn.dataset.speed)
           playback.setSpeed(rate)
