@@ -1,11 +1,9 @@
 import './style.css'
-import { lookupBeatmap, fetchBeatmapFile, type BeatmapLookupResult } from './api/client'
+import { lookupBeatmap, fetchBeatmapFile, audioPreviewUrl, type BeatmapLookupResult } from './api/client'
 import { setupBeatmapForm } from './ui/beatmapForm'
 import { parseBeatmap, summarizeBeatmap } from './beatmap/parser'
-import { computeTransform, circleRadiusOsuPixels } from './render/canvas'
-import { assignCombos } from './render/combo'
-import { drawHitCircle } from './render/renderCircle'
-import type { Beatmap } from 'osu-classes'
+import { AudioController } from './audio/audioController'
+import { startPlayback, type PlaybackHandle } from './render/renderLoop'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <h1>osu!Peek</h1>
@@ -47,25 +45,21 @@ function renderResult(beatmap: BeatmapLookupResult): void {
     ${beatmap.difficultyCount ? `<p class="muted">${beatmap.difficultyCount} difficulties in this set — showing the hardest.</p>` : ''}
     <p id="parse-summary" class="muted">Parsing beatmap file...</p>
     <canvas id="playfield" width="640" height="480"></canvas>
+    <div>
+      <button id="play-btn" disabled>&#9654; Play</button>
+    </div>
   `
 }
 
-function renderStaticPlayfield(canvas: HTMLCanvasElement, beatmap: Beatmap): void {
-  const ctx = canvas.getContext('2d')!
-  const transform = computeTransform(canvas)
-  const radius = circleRadiusOsuPixels(beatmap.difficulty.circleSize)
-  const combos = assignCombos(beatmap.hitObjects)
-
-  ctx.fillStyle = '#0d0e14'
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-  beatmap.hitObjects.forEach((obj, i) => {
-    const combo = combos[i]
-    drawHitCircle(ctx, obj.startPosition.x, obj.startPosition.y, radius, transform, combo.color, String(combo.number))
-  })
-}
+let currentPlayback: PlaybackHandle | null = null
+let currentAudio: AudioController | null = null
 
 setupBeatmapForm(form, async (query) => {
+  currentPlayback?.destroy()
+  currentAudio?.destroy()
+  currentPlayback = null
+  currentAudio = null
+
   statusEl.textContent = 'Loading...'
   resultEl.innerHTML = ''
   try {
@@ -83,7 +77,25 @@ setupBeatmapForm(form, async (query) => {
         `${summary.lastObjectTimeMs}ms, across ${summary.timingPointCount} timing points.`
 
       const canvas = document.querySelector<HTMLCanvasElement>('#playfield')!
-      renderStaticPlayfield(canvas, parsed)
+      // If PreviewTime isn't set in the beatmap, osu! itself defaults to 40% into the track.
+      const previewStartMs =
+        parsed.general.previewTime >= 0 ? parsed.general.previewTime : summary.lastObjectTimeMs * 0.4
+
+      currentAudio = new AudioController(audioPreviewUrl(beatmap.beatmapsetId), previewStartMs)
+      currentPlayback = startPlayback(canvas, parsed, currentAudio)
+
+      const playBtn = document.querySelector<HTMLButtonElement>('#play-btn')!
+      playBtn.disabled = false
+      playBtn.addEventListener('click', () => {
+        if (!currentPlayback) return
+        if (currentPlayback.isPlaying()) {
+          currentPlayback.pause()
+          playBtn.innerHTML = '&#9654; Play'
+        } else {
+          currentPlayback.play()
+          playBtn.innerHTML = '&#10074;&#10074; Pause'
+        }
+      })
     } catch (err) {
       parseSummaryEl.textContent =
         err instanceof Error ? `Beatmap file parse failed: ${err.message}` : 'Beatmap file parse failed.'

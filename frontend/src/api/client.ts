@@ -29,6 +29,10 @@ export async function lookupBeatmap(query: string): Promise<BeatmapLookupResult>
   return data as BeatmapLookupResult
 }
 
+export function audioPreviewUrl(beatmapsetId: number): string {
+  return `${API_BASE}/api/beatmapset/${beatmapsetId}/audio-preview`
+}
+
 export async function fetchBeatmapFile(beatmapId: number): Promise<string> {
   const response = await fetch(`${API_BASE}/api/beatmap/${beatmapId}/file`)
   if (!response.ok) {

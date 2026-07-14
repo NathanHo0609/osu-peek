@@ -26,3 +26,21 @@ export function drawHitCircle(
   ctx.textBaseline = 'middle'
   ctx.fillText(label, sx, sy)
 }
+
+export function drawApproachCircle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radiusOsuPixels: number,
+  transform: PlayfieldTransform,
+  color: string,
+): void {
+  const [sx, sy] = toScreen(x, y, transform)
+  const radius = radiusOsuPixels * transform.scale
+
+  ctx.beginPath()
+  ctx.arc(sx, sy, radius, 0, Math.PI * 2)
+  ctx.lineWidth = 2
+  ctx.strokeStyle = color
+  ctx.stroke()
+}
