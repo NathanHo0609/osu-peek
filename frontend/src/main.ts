@@ -1,6 +1,56 @@
 import './style.css'
+import { lookupBeatmap, type BeatmapLookupResult } from './api/client'
+import { setupBeatmapForm } from './ui/beatmapForm'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <h1>osu!Peek</h1>
   <p>Preview a beatmap's layout before you download it.</p>
+
+  <form id="beatmap-form">
+    <input name="query" type="text" placeholder="Paste a beatmap or beatmapset URL, or an ID" size="50" />
+    <button type="submit">Preview</button>
+  </form>
+
+  <p id="status"></p>
+  <div id="result"></div>
 `
+
+const form = document.querySelector<HTMLFormElement>('#beatmap-form')!
+const statusEl = document.querySelector<HTMLParagraphElement>('#status')!
+const resultEl = document.querySelector<HTMLDivElement>('#result')!
+
+function formatLength(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = Math.floor(totalSeconds % 60)
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
+}
+
+function renderResult(beatmap: BeatmapLookupResult): void {
+  resultEl.innerHTML = `
+    <img src="${beatmap.coverUrl}" alt="" class="cover" />
+    <h2>${beatmap.artist} - ${beatmap.title}</h2>
+    <p>Mapped by ${beatmap.creator} &mdash; [${beatmap.version}]</p>
+    <ul class="stats">
+      <li>★ ${beatmap.difficultyRating.toFixed(2)}</li>
+      <li>CS ${beatmap.cs}</li>
+      <li>AR ${beatmap.ar}</li>
+      <li>OD ${beatmap.od}</li>
+      <li>HP ${beatmap.hp}</li>
+      <li>${beatmap.bpm} BPM</li>
+      <li>${formatLength(beatmap.totalLengthSeconds)}</li>
+    </ul>
+    ${beatmap.difficultyCount ? `<p class="muted">${beatmap.difficultyCount} difficulties in this set — showing the hardest.</p>` : ''}
+  `
+}
+
+setupBeatmapForm(form, async (query) => {
+  statusEl.textContent = 'Loading...'
+  resultEl.innerHTML = ''
+  try {
+    const beatmap = await lookupBeatmap(query)
+    statusEl.textContent = ''
+    renderResult(beatmap)
+  } catch (err) {
+    statusEl.textContent = err instanceof Error ? err.message : 'Something went wrong.'
+  }
+})
