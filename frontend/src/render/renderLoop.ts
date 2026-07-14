@@ -1,8 +1,15 @@
-import { Slider, Spinner, StandardHidden, type StandardBeatmap, type StandardHitObject } from 'osu-standard-stable'
+import {
+  Slider,
+  SliderTick,
+  Spinner,
+  StandardHidden,
+  type StandardBeatmap,
+  type StandardHitObject,
+} from 'osu-standard-stable'
 import { computeTransform } from './canvas'
 import { DEFAULT_COMBO_COLORS, paletteFromBeatmap } from './combo'
 import { drawHitCircle, drawApproachCircle } from './renderCircle'
-import { drawSliderBody, drawSliderBall, drawReverseArrow, angleBetween } from './renderSlider'
+import { drawSliderBody, drawSliderBall, drawSliderTick, drawReverseArrow, angleBetween } from './renderSlider'
 import { drawSpinner } from './renderSpinner'
 import type { AudioController } from '../audio/audioController'
 import type { LoadedSkin } from '../skin/skinLoader'
@@ -108,6 +115,12 @@ export function startPlayback(
 
     if (obj instanceof Slider) {
       drawSliderBody(ctx, obj.path.path, obj.stackedStartPosition, obj.radius, transform, color)
+
+      for (const nested of obj.nestedHitObjects) {
+        if (nested instanceof SliderTick && mapTimeMs < nested.startTime) {
+          drawSliderTick(ctx, nested.stackedStartPosition.x, nested.stackedStartPosition.y, obj.radius, transform)
+        }
+      }
 
       if (obj.repeats >= 1) {
         // Which span (pass along the path) is currently upcoming/active, so we only show

@@ -36,6 +36,22 @@ export function drawSliderBody(
   ctx.stroke()
 }
 
+export function drawSliderTick(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radiusOsuPixels: number,
+  transform: PlayfieldTransform,
+): void {
+  const [sx, sy] = toScreen(x, y, transform)
+  const radius = radiusOsuPixels * transform.scale * 0.12
+
+  ctx.beginPath()
+  ctx.arc(sx, sy, radius, 0, Math.PI * 2)
+  ctx.fillStyle = 'white'
+  ctx.fill()
+}
+
 export function drawSliderBall(
   ctx: CanvasRenderingContext2D,
   x: number,
