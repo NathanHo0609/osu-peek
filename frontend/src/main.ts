@@ -5,6 +5,7 @@ import { parseBeatmap, summarizeBeatmap, toStandardBeatmap } from './beatmap/par
 import { ModBitwise, type Beatmap } from 'osu-classes'
 import { AudioController } from './audio/audioController'
 import { startPlayback, type PlaybackHandle } from './render/renderLoop'
+import type { StandardBeatmap } from 'osu-standard-stable'
 import { setupControls, type Controls } from './ui/controls'
 import { setupSkinUpload } from './ui/skinUpload'
 import type { LoadedSkin } from './skin/skinLoader'
@@ -58,10 +59,10 @@ function renderResult(beatmap: BeatmapLookupResult): void {
     <p>Mapped by ${beatmap.creator} &mdash; [${beatmap.version}]</p>
     <ul class="stats">
       <li>★ ${beatmap.difficultyRating.toFixed(2)}</li>
-      <li>CS ${beatmap.cs}</li>
-      <li>AR ${beatmap.ar}</li>
-      <li>OD ${beatmap.od}</li>
-      <li>HP ${beatmap.hp}</li>
+      <li>CS <span id="stat-cs">${beatmap.cs}</span></li>
+      <li>AR <span id="stat-ar">${beatmap.ar}</span></li>
+      <li>OD <span id="stat-od">${beatmap.od}</span></li>
+      <li>HP <span id="stat-hp">${beatmap.hp}</span></li>
       <li>${beatmap.bpm} BPM</li>
       <li>${formatLength(beatmap.totalLengthSeconds)}</li>
     </ul>
@@ -96,6 +97,22 @@ let currentParsedBeatmap: Beatmap | null = null
 let currentCanvas: HTMLCanvasElement | null = null
 let modsController: ModsController | null = null
 let controls: Controls | null = null
+let currentBaseStats: { cs: number; ar: number; od: number; hp: number } | null = null
+
+function updateStatDisplay(standard: StandardBeatmap): void {
+  const fields: [string, number, number | undefined][] = [
+    ['stat-cs', standard.difficulty.circleSize, currentBaseStats?.cs],
+    ['stat-ar', standard.difficulty.approachRate, currentBaseStats?.ar],
+    ['stat-od', standard.difficulty.overallDifficulty, currentBaseStats?.od],
+    ['stat-hp', standard.difficulty.drainRate, currentBaseStats?.hp],
+  ]
+  for (const [id, value, base] of fields) {
+    const el = document.querySelector<HTMLSpanElement>(`#${id}`)
+    if (!el) continue
+    el.textContent = value.toFixed(1)
+    el.classList.toggle('stat-modified', base !== undefined && Math.abs(value - base) > 0.05)
+  }
+}
 
 function rebuildPlayback(preserve?: { timeMs: number; playing: boolean; rate: number }): void {
   if (!currentParsedBeatmap || !currentCanvas || !currentAudio) return
@@ -108,6 +125,7 @@ function rebuildPlayback(preserve?: { timeMs: number; playing: boolean; rate: nu
   const modsBitwise = modsController?.bitwise() ?? 0
   const hidden = (modsBitwise & ModBitwise.Hidden) !== 0
   const standard = toStandardBeatmap(currentParsedBeatmap, modsBitwise)
+  updateStatDisplay(standard)
   currentPlayback = startPlayback(currentCanvas, standard, currentAudio, currentSkin ?? undefined, hidden, {
     onTick: (mapTimeMs, maxTimeMs) => {
       controls?.onTick(mapTimeMs, maxTimeMs)
@@ -138,12 +156,14 @@ setupBeatmapForm(form, async (query) => {
   currentCanvas = null
   modsController = null
   controls = null
+  currentBaseStats = null
 
   statusEl.textContent = 'Loading...'
   resultEl.innerHTML = ''
   try {
     const beatmap = await lookupBeatmap(query)
     statusEl.textContent = ''
+    currentBaseStats = { cs: beatmap.cs, ar: beatmap.ar, od: beatmap.od, hp: beatmap.hp }
     renderResult(beatmap)
 
     const parseSummaryEl = document.querySelector<HTMLParagraphElement>('#parse-summary')!

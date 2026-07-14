@@ -110,17 +110,42 @@ export function startPlayback(
       drawSliderBody(ctx, obj.path.path, obj.stackedStartPosition, obj.radius, transform, color)
 
       if (obj.repeats >= 1) {
-        const tailPoint = obj.path.path[obj.path.path.length - 1]
-        const beforeTail = obj.path.path[Math.max(0, obj.path.path.length - 2)]
-        drawReverseArrow(
-          ctx,
-          obj.stackedStartPosition.x + tailPoint.x,
-          obj.stackedStartPosition.y + tailPoint.y,
-          angleBetween(beforeTail, tailPoint),
-          obj.radius,
-          transform,
-          skin,
-        )
+        // Which span (pass along the path) is currently upcoming/active, so we only show
+        // the arrow at the end the ball is actually heading toward next, not both ends
+        // for the entire duration regardless of where the ball already passed.
+        let currentSpanIndex = 0
+        if (mapTimeMs >= obj.startTime) {
+          const spanProgress = Math.min(1, (mapTimeMs - obj.startTime) / obj.duration)
+          currentSpanIndex = Math.min(obj.spans - 1, Math.floor(spanProgress * obj.spans))
+        }
+        const headingToTail = currentSpanIndex % 2 === 0
+        const hasFurtherReversal = currentSpanIndex < obj.spans - 1
+
+        if (hasFurtherReversal && headingToTail) {
+          const tailPoint = obj.path.path[obj.path.path.length - 1]
+          const beforeTail = obj.path.path[Math.max(0, obj.path.path.length - 2)]
+          drawReverseArrow(
+            ctx,
+            obj.stackedStartPosition.x + tailPoint.x,
+            obj.stackedStartPosition.y + tailPoint.y,
+            angleBetween(beforeTail, tailPoint),
+            obj.radius,
+            transform,
+            skin,
+          )
+        } else if (hasFurtherReversal && !headingToTail) {
+          const headPoint = obj.path.path[0]
+          const afterHead = obj.path.path[Math.min(1, obj.path.path.length - 1)]
+          drawReverseArrow(
+            ctx,
+            obj.stackedStartPosition.x + headPoint.x,
+            obj.stackedStartPosition.y + headPoint.y,
+            angleBetween(afterHead, headPoint),
+            obj.radius,
+            transform,
+            skin,
+          )
+        }
       }
 
       if (mapTimeMs <= obj.startTime) {
