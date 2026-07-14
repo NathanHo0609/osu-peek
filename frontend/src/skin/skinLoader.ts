@@ -35,7 +35,7 @@ async function loadImage(zip: JSZip, key: string): Promise<HTMLImageElement | un
 
 // Pragmatic v1 element subset: the pieces that visibly matter most for a layout preview.
 // Cursor/judgement/song-select/other-mode elements are intentionally out of scope.
-export async function loadSkin(file: File): Promise<LoadedSkin> {
+export async function loadSkin(file: Blob): Promise<LoadedSkin> {
   const zip = await JSZip.loadAsync(file)
 
   const [hitcircle, hitcircleoverlay, approachcircle, reversearrow, spinnerBackground, spinnerCircle] =

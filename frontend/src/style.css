@@ -121,10 +121,76 @@ button {
   transform: none !important;
 }
 
-.skin-upload {
-  display: block;
+.skin-panel {
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  padding: 14px 16px;
+  margin: 20px 0;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+}
+
+.skin-panel h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 900;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-h);
+}
+
+.skin-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.skin-chip {
+  position: relative;
+  padding: 6px 24px 6px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  background: transparent;
+  color: var(--text);
+  border: 2px solid var(--border);
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.skin-chip:hover {
+  border-color: var(--accent);
+  color: var(--text-h);
+  transform: translateY(-2px);
+}
+
+.skin-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.skin-chip-remove {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 14px;
-  margin-bottom: 4px;
+  opacity: 0.7;
+}
+
+.skin-chip-remove:hover {
+  opacity: 1;
+}
+
+.skin-add-btn {
+  display: inline-block;
+  padding: 6px 16px;
+  font-size: 13px;
+  cursor: pointer;
 }
 
 .api-credentials {

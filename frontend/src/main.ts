@@ -8,7 +8,7 @@ import { startPlayback, type PlaybackHandle } from './render/renderLoop'
 import { fitCanvasToContainer } from './render/canvas'
 import type { StandardBeatmap } from 'osu-standard-stable'
 import { setupControls, type Controls } from './ui/controls'
-import { setupSkinUpload } from './ui/skinUpload'
+import { setupSkinPanel } from './ui/skinPanel'
 import type { LoadedSkin } from './skin/skinLoader'
 import { setupMods, type ModsController } from './ui/mods'
 import { setupApiCredentials } from './ui/apiCredentials'
@@ -40,10 +40,15 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 
   <p id="status"></p>
 
-  <label class="skin-upload">
-    Skin (optional): <input id="skin-input" type="file" accept=".osk" />
-  </label>
-  <p id="skin-status" class="muted"></p>
+  <div class="skin-panel">
+    <h3>Skins</h3>
+    <div id="skin-list" class="skin-list"></div>
+    <label class="skin-add-btn slant-btn">
+      + Add skin
+      <input id="skin-input" type="file" accept=".osk" hidden />
+    </label>
+    <p id="skin-status" class="muted"></p>
+  </div>
 
   <div id="result"></div>
 `
@@ -56,13 +61,16 @@ attachUiSound(form.querySelector<HTMLButtonElement>('button[type="submit"]')!)
 setupApiCredentials(document.body)
 
 let currentSkin: LoadedSkin | null = null
-setupSkinUpload(
-  document.querySelector<HTMLInputElement>('#skin-input')!,
-  document.querySelector<HTMLParagraphElement>('#skin-status')!,
-  (skin) => {
-    currentSkin = skin
-  },
-)
+setupSkinPanel(document.body, (skin) => {
+  currentSkin = skin
+  if (currentParsedBeatmap) {
+    rebuildPlayback({
+      timeMs: currentPlayback?.getMapTimeMs() ?? 0,
+      playing: currentPlayback?.isPlaying() ?? false,
+      rate: currentPlayback?.getSpeed() ?? 1,
+    })
+  }
+})
 
 function formatLength(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60)
