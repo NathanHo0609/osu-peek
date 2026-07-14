@@ -18,7 +18,7 @@ export interface BeatmapLookupResult {
   difficultyCount?: number
 }
 
-const API_BASE = 'http://localhost:3001'
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3001'
 
 export async function lookupBeatmap(query: string): Promise<BeatmapLookupResult> {
   const response = await fetch(`${API_BASE}/api/lookup?query=${encodeURIComponent(query)}`, {
