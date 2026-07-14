@@ -1,0 +1,8 @@
+services:
+  - name: osu-peek-backend
+    type: web
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
