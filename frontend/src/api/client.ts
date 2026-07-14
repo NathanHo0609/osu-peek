@@ -28,3 +28,12 @@ export async function lookupBeatmap(query: string): Promise<BeatmapLookupResult>
 
   return data as BeatmapLookupResult
 }
+
+export async function fetchBeatmapFile(beatmapId: number): Promise<string> {
+  const response = await fetch(`${API_BASE}/api/beatmap/${beatmapId}/file`)
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data.error ?? 'Failed to fetch beatmap file')
+  }
+  return response.text()
+}

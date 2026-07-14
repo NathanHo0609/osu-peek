@@ -1,6 +1,7 @@
 import './style.css'
-import { lookupBeatmap, type BeatmapLookupResult } from './api/client'
+import { lookupBeatmap, fetchBeatmapFile, type BeatmapLookupResult } from './api/client'
 import { setupBeatmapForm } from './ui/beatmapForm'
+import { parseBeatmap, summarizeBeatmap } from './beatmap/parser'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <h1>osu!Peek</h1>
@@ -40,6 +41,7 @@ function renderResult(beatmap: BeatmapLookupResult): void {
       <li>${formatLength(beatmap.totalLengthSeconds)}</li>
     </ul>
     ${beatmap.difficultyCount ? `<p class="muted">${beatmap.difficultyCount} difficulties in this set — showing the hardest.</p>` : ''}
+    <p id="parse-summary" class="muted">Parsing beatmap file...</p>
   `
 }
 
@@ -50,6 +52,19 @@ setupBeatmapForm(form, async (query) => {
     const beatmap = await lookupBeatmap(query)
     statusEl.textContent = ''
     renderResult(beatmap)
+
+    const parseSummaryEl = document.querySelector<HTMLParagraphElement>('#parse-summary')!
+    try {
+      const fileText = await fetchBeatmapFile(beatmap.beatmapId)
+      const parsed = parseBeatmap(fileText)
+      const summary = summarizeBeatmap(parsed)
+      parseSummaryEl.textContent =
+        `Parsed ${summary.objectCount} hit objects, from ${summary.firstObjectTimeMs}ms to ` +
+        `${summary.lastObjectTimeMs}ms, across ${summary.timingPointCount} timing points.`
+    } catch (err) {
+      parseSummaryEl.textContent =
+        err instanceof Error ? `Beatmap file parse failed: ${err.message}` : 'Beatmap file parse failed.'
+    }
   } catch (err) {
     statusEl.textContent = err instanceof Error ? err.message : 'Something went wrong.'
   }
