@@ -2,6 +2,10 @@ import './style.css'
 import { lookupBeatmap, fetchBeatmapFile, type BeatmapLookupResult } from './api/client'
 import { setupBeatmapForm } from './ui/beatmapForm'
 import { parseBeatmap, summarizeBeatmap } from './beatmap/parser'
+import { computeTransform, circleRadiusOsuPixels } from './render/canvas'
+import { assignCombos } from './render/combo'
+import { drawHitCircle } from './render/renderCircle'
+import type { Beatmap } from 'osu-classes'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <h1>osu!Peek</h1>
@@ -42,7 +46,23 @@ function renderResult(beatmap: BeatmapLookupResult): void {
     </ul>
     ${beatmap.difficultyCount ? `<p class="muted">${beatmap.difficultyCount} difficulties in this set — showing the hardest.</p>` : ''}
     <p id="parse-summary" class="muted">Parsing beatmap file...</p>
+    <canvas id="playfield" width="640" height="480"></canvas>
   `
+}
+
+function renderStaticPlayfield(canvas: HTMLCanvasElement, beatmap: Beatmap): void {
+  const ctx = canvas.getContext('2d')!
+  const transform = computeTransform(canvas)
+  const radius = circleRadiusOsuPixels(beatmap.difficulty.circleSize)
+  const combos = assignCombos(beatmap.hitObjects)
+
+  ctx.fillStyle = '#0d0e14'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+  beatmap.hitObjects.forEach((obj, i) => {
+    const combo = combos[i]
+    drawHitCircle(ctx, obj.startPosition.x, obj.startPosition.y, radius, transform, combo.color, String(combo.number))
+  })
 }
 
 setupBeatmapForm(form, async (query) => {
@@ -61,6 +81,9 @@ setupBeatmapForm(form, async (query) => {
       parseSummaryEl.textContent =
         `Parsed ${summary.objectCount} hit objects, from ${summary.firstObjectTimeMs}ms to ` +
         `${summary.lastObjectTimeMs}ms, across ${summary.timingPointCount} timing points.`
+
+      const canvas = document.querySelector<HTMLCanvasElement>('#playfield')!
+      renderStaticPlayfield(canvas, parsed)
     } catch (err) {
       parseSummaryEl.textContent =
         err instanceof Error ? `Beatmap file parse failed: ${err.message}` : 'Beatmap file parse failed.'

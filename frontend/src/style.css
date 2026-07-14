@@ -70,3 +70,9 @@ form button {
   color: var(--text);
   font-size: 14px;
 }
+
+#playfield {
+  max-width: 100%;
+  border-radius: 8px;
+  margin-top: 16px;
+}
