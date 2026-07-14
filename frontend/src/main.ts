@@ -1,5 +1,5 @@
 import './style.css'
-import { lookupBeatmap, fetchBeatmapFile, audioPreviewUrl, type BeatmapLookupResult } from './api/client'
+import { lookupBeatmap, fetchBeatmapFile, audioPreviewUrl, fullAudioUrl, type BeatmapLookupResult } from './api/client'
 import { setupBeatmapForm } from './ui/beatmapForm'
 import { parseBeatmap, summarizeBeatmap, toStandardBeatmap } from './beatmap/parser'
 import { ModBitwise, type Beatmap } from 'osu-classes'
@@ -98,6 +98,25 @@ let currentCanvas: HTMLCanvasElement | null = null
 let modsController: ModsController | null = null
 let controls: Controls | null = null
 let currentBaseStats: { cs: number; ar: number; od: number; hp: number } | null = null
+let currentAudioObjectUrl: string | null = null
+
+// Tries the full song from a free community mirror first (osu!'s own download endpoint
+// is restricted to the real game client); falls back to the short official preview clip
+// if the mirror doesn't have it or is unreachable.
+async function resolveAudioSource(
+  beatmapsetId: number,
+  previewStartMs: number,
+): Promise<{ src: string; startMs: number; isFull: boolean }> {
+  try {
+    const response = await fetch(fullAudioUrl(beatmapsetId))
+    if (!response.ok) throw new Error('mirror unavailable')
+    const blob = await response.blob()
+    currentAudioObjectUrl = URL.createObjectURL(blob)
+    return { src: currentAudioObjectUrl, startMs: 0, isFull: true }
+  } catch {
+    return { src: audioPreviewUrl(beatmapsetId), startMs: previewStartMs, isFull: false }
+  }
+}
 
 function updateStatDisplay(standard: StandardBeatmap): void {
   const fields: [string, number, number | undefined][] = [
@@ -150,8 +169,10 @@ function rebuildPlayback(preserve?: { timeMs: number; playing: boolean; rate: nu
 setupBeatmapForm(form, async (query) => {
   currentPlayback?.destroy()
   currentAudio?.destroy()
+  if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl)
   currentPlayback = null
   currentAudio = null
+  currentAudioObjectUrl = null
   currentParsedBeatmap = null
   currentCanvas = null
   modsController = null
@@ -180,7 +201,14 @@ setupBeatmapForm(form, async (query) => {
       // If PreviewTime isn't set in the beatmap, osu! itself defaults to 40% into the track.
       const previewStartMs =
         parsed.general.previewTime >= 0 ? parsed.general.previewTime : summary.lastObjectTimeMs * 0.4
-      currentAudio = new AudioController(audioPreviewUrl(beatmap.beatmapsetId), previewStartMs)
+
+      parseSummaryEl.textContent += ' Loading full song...'
+      const audioSource = await resolveAudioSource(beatmap.beatmapsetId, previewStartMs)
+      parseSummaryEl.textContent =
+        `Parsed ${summary.objectCount} hit objects, from ${summary.firstObjectTimeMs}ms to ` +
+        `${summary.lastObjectTimeMs}ms, across ${summary.timingPointCount} timing points. ` +
+        (audioSource.isFull ? 'Playing the full song.' : "Full song unavailable — using the short preview clip.")
+      currentAudio = new AudioController(audioSource.src, audioSource.startMs)
 
       controls = setupControls(resultEl)
       controls.bind(() => currentPlayback)

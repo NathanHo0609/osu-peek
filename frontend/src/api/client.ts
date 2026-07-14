@@ -33,6 +33,10 @@ export function audioPreviewUrl(beatmapsetId: number): string {
   return `${API_BASE}/api/beatmapset/${beatmapsetId}/audio-preview`
 }
 
+export function fullAudioUrl(beatmapsetId: number): string {
+  return `${API_BASE}/api/beatmapset/${beatmapsetId}/full-audio`
+}
+
 export async function fetchBeatmapFile(beatmapId: number): Promise<string> {
   const response = await fetch(`${API_BASE}/api/beatmap/${beatmapId}/file`)
   if (!response.ok) {
