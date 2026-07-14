@@ -1,6 +1,6 @@
 import type { Beatmap } from 'osu-classes'
 import { computeTransform, circleRadiusOsuPixels } from './canvas'
-import { assignCombos } from './combo'
+import { assignCombos, paletteFromBeatmap } from './combo'
 import { drawHitCircle, drawApproachCircle } from './renderCircle'
 import { approachPreemptMs, approachFadeInMs } from '../beatmap/difficulty'
 import type { AudioController } from '../audio/audioController'
@@ -14,6 +14,7 @@ export interface PlaybackHandle {
   pause(): void
   seek(timeMs: number): void
   setSpeed(rate: number): void
+  setVolume(volume: number): void
   isPlaying(): boolean
   getMapTimeMs(): number
   getMaxTimeMs(): number
@@ -33,7 +34,7 @@ export function startPlayback(
   const ctx = canvas.getContext('2d')!
   const transform = computeTransform(canvas)
   const radius = circleRadiusOsuPixels(beatmap.difficulty.circleSize)
-  const combos = assignCombos(beatmap.hitObjects)
+  const combos = assignCombos(beatmap.hitObjects, paletteFromBeatmap(beatmap.colors.comboColors))
   const preemptMs = approachPreemptMs(beatmap.difficulty.approachRate)
   const fadeInMs = approachFadeInMs(beatmap.difficulty.approachRate)
   const lastObject = beatmap.hitObjects[beatmap.hitObjects.length - 1]
@@ -114,6 +115,9 @@ export function startPlayback(
     setSpeed(rate: number) {
       speed = rate
       audio.setRate(rate)
+    },
+    setVolume(volume: number) {
+      audio.setVolume(volume)
     },
     isPlaying() {
       return playing

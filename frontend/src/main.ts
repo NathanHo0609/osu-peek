@@ -56,6 +56,9 @@ function renderResult(beatmap: BeatmapLookupResult): void {
         <button class="speed-btn" data-speed="1.5">1.5x</button>
         <button class="speed-btn" data-speed="2">2x</button>
       </div>
+      <label class="volume-control">
+        &#128266; <input id="volume-slider" type="range" min="0" max="100" value="50" />
+      </label>
     </div>
   `
 }

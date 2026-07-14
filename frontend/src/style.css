@@ -115,3 +115,14 @@ form button {
   border-color: var(--text-h);
   font-weight: 600;
 }
+
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.volume-control input {
+  width: 100px;
+}

@@ -16,6 +16,7 @@ export function setupControls(container: HTMLElement): Controls {
   const seekBar = container.querySelector<HTMLInputElement>('#seek-bar')!
   const timeLabel = container.querySelector<HTMLSpanElement>('#time-label')!
   const speedButtons = Array.from(container.querySelectorAll<HTMLButtonElement>('.speed-btn'))
+  const volumeSlider = container.querySelector<HTMLInputElement>('#volume-slider')!
 
   let dragging = false
   seekBar.addEventListener('pointerdown', () => {
@@ -44,6 +45,11 @@ export function setupControls(container: HTMLElement): Controls {
           playback.setSpeed(rate)
           speedButtons.forEach((b) => b.classList.toggle('active', b === btn))
         })
+      })
+
+      playback.setVolume(Number(volumeSlider.value) / 100)
+      volumeSlider.addEventListener('input', () => {
+        playback.setVolume(Number(volumeSlider.value) / 100)
       })
     },
   }

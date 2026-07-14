@@ -9,6 +9,7 @@ export class AudioController {
   constructor(src: string, previewStartMs: number) {
     this.audio = new Audio(src)
     this.audio.preload = 'auto'
+    this.audio.volume = 0.5
     this.previewStartMs = previewStartMs
     this.audio.addEventListener('loadedmetadata', () => {
       this.durationMs = this.audio.duration * 1000
@@ -17,6 +18,10 @@ export class AudioController {
 
   setRate(rate: number): void {
     this.audio.playbackRate = rate
+  }
+
+  setVolume(volume: number): void {
+    this.audio.volume = Math.max(0, Math.min(1, volume))
   }
 
   // Call every animation frame with the current absolute map time and whether playback is active.
