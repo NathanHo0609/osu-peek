@@ -4,6 +4,7 @@ import { setupBeatmapForm } from './ui/beatmapForm'
 import { parseBeatmap, summarizeBeatmap } from './beatmap/parser'
 import { AudioController } from './audio/audioController'
 import { startPlayback, type PlaybackHandle } from './render/renderLoop'
+import { setupControls } from './ui/controls'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <h1>osu!Peek</h1>
@@ -45,8 +46,16 @@ function renderResult(beatmap: BeatmapLookupResult): void {
     ${beatmap.difficultyCount ? `<p class="muted">${beatmap.difficultyCount} difficulties in this set — showing the hardest.</p>` : ''}
     <p id="parse-summary" class="muted">Parsing beatmap file...</p>
     <canvas id="playfield" width="640" height="480"></canvas>
-    <div>
+    <div class="playback-controls">
       <button id="play-btn" disabled>&#9654; Play</button>
+      <input id="seek-bar" type="range" min="0" max="1000" value="0" />
+      <span id="time-label">0:00 / 0:00</span>
+      <div class="speed-buttons">
+        <button class="speed-btn" data-speed="0.5">0.5x</button>
+        <button class="speed-btn active" data-speed="1">1x</button>
+        <button class="speed-btn" data-speed="1.5">1.5x</button>
+        <button class="speed-btn" data-speed="2">2x</button>
+      </div>
     </div>
   `
 }
@@ -81,19 +90,30 @@ setupBeatmapForm(form, async (query) => {
       const previewStartMs =
         parsed.general.previewTime >= 0 ? parsed.general.previewTime : summary.lastObjectTimeMs * 0.4
 
-      currentAudio = new AudioController(audioPreviewUrl(beatmap.beatmapsetId), previewStartMs)
-      currentPlayback = startPlayback(canvas, parsed, currentAudio)
-
       const playBtn = document.querySelector<HTMLButtonElement>('#play-btn')!
+      let wasPlaying = false
+
+      currentAudio = new AudioController(audioPreviewUrl(beatmap.beatmapsetId), previewStartMs)
+      const controls = setupControls(resultEl)
+      currentPlayback = startPlayback(canvas, parsed, currentAudio, {
+        onTick: (mapTimeMs, maxTimeMs) => {
+          controls.onTick(mapTimeMs, maxTimeMs)
+          const nowPlaying = currentPlayback!.isPlaying()
+          if (nowPlaying !== wasPlaying) {
+            wasPlaying = nowPlaying
+            playBtn.innerHTML = nowPlaying ? '&#10074;&#10074; Pause' : '&#9654; Play'
+          }
+        },
+      })
+      controls.bind(currentPlayback)
+
       playBtn.disabled = false
       playBtn.addEventListener('click', () => {
         if (!currentPlayback) return
         if (currentPlayback.isPlaying()) {
           currentPlayback.pause()
-          playBtn.innerHTML = '&#9654; Play'
         } else {
           currentPlayback.play()
-          playBtn.innerHTML = '&#10074;&#10074; Pause'
         }
       })
     } catch (err) {

@@ -12,11 +12,24 @@ const END_BUFFER_MS = 1000
 export interface PlaybackHandle {
   play(): void
   pause(): void
+  seek(timeMs: number): void
+  setSpeed(rate: number): void
   isPlaying(): boolean
+  getMapTimeMs(): number
+  getMaxTimeMs(): number
   destroy(): void
 }
 
-export function startPlayback(canvas: HTMLCanvasElement, beatmap: Beatmap, audio: AudioController): PlaybackHandle {
+export interface PlaybackOptions {
+  onTick?: (mapTimeMs: number, maxTimeMs: number) => void
+}
+
+export function startPlayback(
+  canvas: HTMLCanvasElement,
+  beatmap: Beatmap,
+  audio: AudioController,
+  options: PlaybackOptions = {},
+): PlaybackHandle {
   const ctx = canvas.getContext('2d')!
   const transform = computeTransform(canvas)
   const radius = circleRadiusOsuPixels(beatmap.difficulty.circleSize)
@@ -28,6 +41,7 @@ export function startPlayback(canvas: HTMLCanvasElement, beatmap: Beatmap, audio
 
   let mapTimeMs = 0
   let playing = false
+  let speed = 1
   let lastFrameTime = performance.now()
   let rafId = 0
 
@@ -68,7 +82,7 @@ export function startPlayback(canvas: HTMLCanvasElement, beatmap: Beatmap, audio
     lastFrameTime = now
 
     if (playing) {
-      mapTimeMs += delta
+      mapTimeMs += delta * speed
       if (mapTimeMs >= maxTimeMs) {
         mapTimeMs = maxTimeMs
         playing = false
@@ -77,6 +91,7 @@ export function startPlayback(canvas: HTMLCanvasElement, beatmap: Beatmap, audio
 
     audio.sync(mapTimeMs, playing)
     draw()
+    options.onTick?.(mapTimeMs, maxTimeMs)
     rafId = requestAnimationFrame(frame)
   }
 
@@ -91,8 +106,23 @@ export function startPlayback(canvas: HTMLCanvasElement, beatmap: Beatmap, audio
     pause() {
       playing = false
     },
+    seek(timeMs: number) {
+      mapTimeMs = Math.max(0, Math.min(maxTimeMs, timeMs))
+      audio.sync(mapTimeMs, playing)
+      draw()
+    },
+    setSpeed(rate: number) {
+      speed = rate
+      audio.setRate(rate)
+    },
     isPlaying() {
       return playing
+    },
+    getMapTimeMs() {
+      return mapTimeMs
+    },
+    getMaxTimeMs() {
+      return maxTimeMs
     },
     destroy() {
       cancelAnimationFrame(rafId)

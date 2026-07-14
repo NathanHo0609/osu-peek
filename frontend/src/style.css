@@ -77,8 +77,41 @@ form button {
   margin-top: 16px;
 }
 
-#play-btn {
+.playback-controls {
   margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+#play-btn {
   padding: 8px 20px;
   font-size: 16px;
+}
+
+#seek-bar {
+  width: 100%;
+}
+
+#time-label {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.speed-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.speed-btn {
+  padding: 4px 10px;
+  font-size: 14px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.speed-btn.active {
+  border-color: var(--text-h);
+  font-weight: 600;
 }
