@@ -1,7 +1,7 @@
 import './style.css'
 import { lookupBeatmap, fetchBeatmapFile, audioPreviewUrl, type BeatmapLookupResult } from './api/client'
 import { setupBeatmapForm } from './ui/beatmapForm'
-import { parseBeatmap, summarizeBeatmap } from './beatmap/parser'
+import { parseBeatmap, summarizeBeatmap, toStandardBeatmap } from './beatmap/parser'
 import { AudioController } from './audio/audioController'
 import { startPlayback, type PlaybackHandle } from './render/renderLoop'
 import { setupControls } from './ui/controls'
@@ -88,6 +88,7 @@ setupBeatmapForm(form, async (query) => {
         `Parsed ${summary.objectCount} hit objects, from ${summary.firstObjectTimeMs}ms to ` +
         `${summary.lastObjectTimeMs}ms, across ${summary.timingPointCount} timing points.`
 
+      const standard = toStandardBeatmap(parsed)
       const canvas = document.querySelector<HTMLCanvasElement>('#playfield')!
       // If PreviewTime isn't set in the beatmap, osu! itself defaults to 40% into the track.
       const previewStartMs =
@@ -98,7 +99,7 @@ setupBeatmapForm(form, async (query) => {
 
       currentAudio = new AudioController(audioPreviewUrl(beatmap.beatmapsetId), previewStartMs)
       const controls = setupControls(resultEl)
-      currentPlayback = startPlayback(canvas, parsed, currentAudio, {
+      currentPlayback = startPlayback(canvas, standard, currentAudio, {
         onTick: (mapTimeMs, maxTimeMs) => {
           controls.onTick(mapTimeMs, maxTimeMs)
           const nowPlaying = currentPlayback!.isPlaying()

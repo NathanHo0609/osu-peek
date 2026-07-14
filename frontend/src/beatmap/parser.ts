@@ -1,10 +1,19 @@
 import { BeatmapDecoder } from 'osu-parsers'
 import type { Beatmap } from 'osu-classes'
+import { StandardRuleset, type StandardBeatmap } from 'osu-standard-stable'
 
 const decoder = new BeatmapDecoder()
+const ruleset = new StandardRuleset()
 
 export function parseBeatmap(osuFileText: string): Beatmap {
   return decoder.decodeFromString(osuFileText)
+}
+
+// Converts the generic decoded beatmap into an osu!standard-specific one. This is what
+// computes slider paths/durations and per-object timing/combo data properly, rather than
+// us re-deriving it by hand.
+export function toStandardBeatmap(beatmap: Beatmap): StandardBeatmap {
+  return ruleset.applyToBeatmap(beatmap)
 }
 
 export interface ParseSummary {
