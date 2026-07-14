@@ -5,6 +5,8 @@ import { parseBeatmap, summarizeBeatmap, toStandardBeatmap } from './beatmap/par
 import { AudioController } from './audio/audioController'
 import { startPlayback, type PlaybackHandle } from './render/renderLoop'
 import { setupControls } from './ui/controls'
+import { setupSkinUpload } from './ui/skinUpload'
+import type { LoadedSkin } from './skin/skinLoader'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <h1>osu!Peek</h1>
@@ -16,12 +18,27 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   </form>
 
   <p id="status"></p>
+
+  <label class="skin-upload">
+    Skin (optional): <input id="skin-input" type="file" accept=".osk" />
+  </label>
+  <p id="skin-status" class="muted"></p>
+
   <div id="result"></div>
 `
 
 const form = document.querySelector<HTMLFormElement>('#beatmap-form')!
 const statusEl = document.querySelector<HTMLParagraphElement>('#status')!
 const resultEl = document.querySelector<HTMLDivElement>('#result')!
+
+let currentSkin: LoadedSkin | null = null
+setupSkinUpload(
+  document.querySelector<HTMLInputElement>('#skin-input')!,
+  document.querySelector<HTMLParagraphElement>('#skin-status')!,
+  (skin) => {
+    currentSkin = skin
+  },
+)
 
 function formatLength(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60)
@@ -99,7 +116,7 @@ setupBeatmapForm(form, async (query) => {
 
       currentAudio = new AudioController(audioPreviewUrl(beatmap.beatmapsetId), previewStartMs)
       const controls = setupControls(resultEl)
-      currentPlayback = startPlayback(canvas, standard, currentAudio, {
+      currentPlayback = startPlayback(canvas, standard, currentAudio, currentSkin ?? undefined, {
         onTick: (mapTimeMs, maxTimeMs) => {
           controls.onTick(mapTimeMs, maxTimeMs)
           const nowPlaying = currentPlayback!.isPlaying()

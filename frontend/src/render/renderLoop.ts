@@ -1,10 +1,11 @@
 import { Slider, Spinner, type StandardBeatmap, type StandardHitObject } from 'osu-standard-stable'
 import { computeTransform } from './canvas'
-import { paletteFromBeatmap } from './combo'
+import { DEFAULT_COMBO_COLORS, paletteFromBeatmap } from './combo'
 import { drawHitCircle, drawApproachCircle } from './renderCircle'
 import { drawSliderBody, drawSliderBall, drawReverseArrow, angleBetween } from './renderSlider'
 import { drawSpinner } from './renderSpinner'
 import type { AudioController } from '../audio/audioController'
+import type { LoadedSkin } from '../skin/skinLoader'
 
 const FADE_OUT_MS = 150
 const APPROACH_SCALE = 3
@@ -35,11 +36,16 @@ export function startPlayback(
   canvas: HTMLCanvasElement,
   beatmap: StandardBeatmap,
   audio: AudioController,
+  skin: LoadedSkin | undefined,
   options: PlaybackOptions = {},
 ): PlaybackHandle {
   const ctx = canvas.getContext('2d')!
   const transform = computeTransform(canvas)
-  const palette = paletteFromBeatmap(beatmap.colors.comboColors)
+  // Beatmap-defined colors win (matches real osu!), then the loaded skin's, then our default palette.
+  const palette =
+    beatmap.colors.comboColors.length > 0
+      ? paletteFromBeatmap(beatmap.colors.comboColors)
+      : (skin?.comboColors?.length ? skin.comboColors : DEFAULT_COMBO_COLORS)
   const lastObject = beatmap.hitObjects[beatmap.hitObjects.length - 1]
   const maxTimeMs = (lastObject ? endTimeOf(lastObject) : 0) + FADE_OUT_MS + END_BUFFER_MS
 
@@ -72,7 +78,7 @@ export function startPlayback(
       const spinsRequired = obj.spinsRequired || 1
       const angularVelocity = obj.duration > 0 ? (spinsRequired * Math.PI * 2) / obj.duration : 0
       const progress = obj.duration > 0 ? elapsed / obj.duration : 0
-      drawSpinner(ctx, transform, angularVelocity * elapsed, progress, color)
+      drawSpinner(ctx, transform, angularVelocity * elapsed, progress, color, skin)
       ctx.globalAlpha = 1
       return
     }
@@ -90,6 +96,7 @@ export function startPlayback(
           angleBetween(beforeTail, tailPoint),
           obj.radius,
           transform,
+          skin,
         )
       }
 
@@ -101,6 +108,7 @@ export function startPlayback(
         transform,
         color,
         label,
+        skin,
       )
 
       if (mapTimeMs >= obj.startTime && mapTimeMs <= endTime) {
@@ -112,6 +120,7 @@ export function startPlayback(
           obj.stackedStartPosition.y + local.y,
           obj.radius,
           transform,
+          skin,
         )
       }
     } else {
@@ -123,6 +132,7 @@ export function startPlayback(
         transform,
         color,
         label,
+        skin,
       )
     }
 
@@ -136,6 +146,7 @@ export function startPlayback(
         obj.radius * approachScale,
         transform,
         color,
+        skin,
       )
     }
 
