@@ -205,15 +205,15 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
-.speed-buttons {
+.mod-buttons {
   display: flex;
   gap: 6px;
 }
 
-.speed-btn {
-  padding: 5px 12px;
+.mod-btn {
+  padding: 5px 14px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
   background: transparent;
   color: var(--text);
   border: 2px solid var(--border);
@@ -221,23 +221,43 @@ h2 {
   transition: all 0.15s ease;
 }
 
-.speed-btn:hover {
+.mod-btn:hover:not(:disabled) {
   border-color: var(--accent-2);
   color: var(--text-h);
   transform: translateY(-2px);
 }
 
-.speed-btn.active {
+.mod-btn.active {
   background: var(--accent-2);
   border-color: var(--accent-2);
   color: #06121a;
 }
 
+.mod-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.rate-control,
 .volume-control {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 14px;
+}
+
+.rate-control input {
+  accent-color: var(--accent-2);
+}
+
+.rate-control input:disabled {
+  opacity: 0.3;
+}
+
+#rate-label {
+  font-variant-numeric: tabular-nums;
+  min-width: 46px;
+  text-align: left;
 }
 
 .volume-control input {

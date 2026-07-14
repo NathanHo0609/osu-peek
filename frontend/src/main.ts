@@ -2,11 +2,13 @@ import './style.css'
 import { lookupBeatmap, fetchBeatmapFile, audioPreviewUrl, type BeatmapLookupResult } from './api/client'
 import { setupBeatmapForm } from './ui/beatmapForm'
 import { parseBeatmap, summarizeBeatmap, toStandardBeatmap } from './beatmap/parser'
+import { ModBitwise, type Beatmap } from 'osu-classes'
 import { AudioController } from './audio/audioController'
 import { startPlayback, type PlaybackHandle } from './render/renderLoop'
-import { setupControls } from './ui/controls'
+import { setupControls, type Controls } from './ui/controls'
 import { setupSkinUpload } from './ui/skinUpload'
 import type { LoadedSkin } from './skin/skinLoader'
+import { setupMods, type ModsController } from './ui/mods'
 import { attachUiSound, playToggleOn, playToggleOff } from './ui/sound'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
@@ -70,12 +72,17 @@ function renderResult(beatmap: BeatmapLookupResult): void {
       <button id="play-btn" class="slant-btn" disabled>&#9654; Play</button>
       <input id="seek-bar" type="range" min="0" max="1000" value="0" />
       <span id="time-label">0:00 / 0:00</span>
-      <div class="speed-buttons">
-        <button class="speed-btn" data-speed="0.5">0.5x</button>
-        <button class="speed-btn active" data-speed="1">1x</button>
-        <button class="speed-btn" data-speed="1.5">1.5x</button>
-        <button class="speed-btn" data-speed="2">2x</button>
+      <div class="mod-buttons">
+        <button class="mod-btn" data-mod="EZ">EZ</button>
+        <button class="mod-btn" data-mod="HR">HR</button>
+        <button class="mod-btn" data-mod="HD">HD</button>
+        <button class="mod-btn" data-mod="HT">HT</button>
+        <button class="mod-btn" data-mod="DT">DT</button>
       </div>
+      <label class="rate-control">
+        Speed <input id="rate-slider" type="range" min="1" max="2" step="0.05" value="1" />
+        <span id="rate-label">1.00x</span>
+      </label>
       <label class="volume-control">
         &#128266; <input id="volume-slider" type="range" min="0" max="100" value="50" />
       </label>
@@ -85,12 +92,52 @@ function renderResult(beatmap: BeatmapLookupResult): void {
 
 let currentPlayback: PlaybackHandle | null = null
 let currentAudio: AudioController | null = null
+let currentParsedBeatmap: Beatmap | null = null
+let currentCanvas: HTMLCanvasElement | null = null
+let modsController: ModsController | null = null
+let controls: Controls | null = null
+
+function rebuildPlayback(preserve?: { timeMs: number; playing: boolean; rate: number }): void {
+  if (!currentParsedBeatmap || !currentCanvas || !currentAudio) return
+
+  currentPlayback?.destroy()
+
+  const playBtn = document.querySelector<HTMLButtonElement>('#play-btn')!
+  let wasPlaying = preserve?.playing ?? false
+
+  const modsBitwise = modsController?.bitwise() ?? 0
+  const hidden = (modsBitwise & ModBitwise.Hidden) !== 0
+  const standard = toStandardBeatmap(currentParsedBeatmap, modsBitwise)
+  currentPlayback = startPlayback(currentCanvas, standard, currentAudio, currentSkin ?? undefined, hidden, {
+    onTick: (mapTimeMs, maxTimeMs) => {
+      controls?.onTick(mapTimeMs, maxTimeMs)
+      const nowPlaying = currentPlayback!.isPlaying()
+      if (nowPlaying !== wasPlaying) {
+        wasPlaying = nowPlaying
+        playBtn.innerHTML = nowPlaying ? '&#10074;&#10074; Pause' : '&#9654; Play'
+        if (nowPlaying) playToggleOn()
+        else playToggleOff()
+      }
+    },
+  })
+
+  currentPlayback.setSpeed(preserve?.rate ?? 1)
+  if (preserve) {
+    currentPlayback.seek(preserve.timeMs)
+    if (preserve.playing) currentPlayback.play()
+  }
+  playBtn.innerHTML = wasPlaying ? '&#10074;&#10074; Pause' : '&#9654; Play'
+}
 
 setupBeatmapForm(form, async (query) => {
   currentPlayback?.destroy()
   currentAudio?.destroy()
   currentPlayback = null
   currentAudio = null
+  currentParsedBeatmap = null
+  currentCanvas = null
+  modsController = null
+  controls = null
 
   statusEl.textContent = 'Loading...'
   resultEl.innerHTML = ''
@@ -108,32 +155,17 @@ setupBeatmapForm(form, async (query) => {
         `Parsed ${summary.objectCount} hit objects, from ${summary.firstObjectTimeMs}ms to ` +
         `${summary.lastObjectTimeMs}ms, across ${summary.timingPointCount} timing points.`
 
-      const standard = toStandardBeatmap(parsed)
-      const canvas = document.querySelector<HTMLCanvasElement>('#playfield')!
+      currentParsedBeatmap = parsed
+      currentCanvas = document.querySelector<HTMLCanvasElement>('#playfield')!
       // If PreviewTime isn't set in the beatmap, osu! itself defaults to 40% into the track.
       const previewStartMs =
         parsed.general.previewTime >= 0 ? parsed.general.previewTime : summary.lastObjectTimeMs * 0.4
+      currentAudio = new AudioController(audioPreviewUrl(beatmap.beatmapsetId), previewStartMs)
+
+      controls = setupControls(resultEl)
+      controls.bind(() => currentPlayback)
 
       const playBtn = document.querySelector<HTMLButtonElement>('#play-btn')!
-      let wasPlaying = false
-
-      currentAudio = new AudioController(audioPreviewUrl(beatmap.beatmapsetId), previewStartMs)
-      const controls = setupControls(resultEl)
-      currentPlayback = startPlayback(canvas, standard, currentAudio, currentSkin ?? undefined, {
-        onTick: (mapTimeMs, maxTimeMs) => {
-          controls.onTick(mapTimeMs, maxTimeMs)
-          const nowPlaying = currentPlayback!.isPlaying()
-          if (nowPlaying !== wasPlaying) {
-            wasPlaying = nowPlaying
-            playBtn.innerHTML = nowPlaying ? '&#10074;&#10074; Pause' : '&#9654; Play'
-            if (nowPlaying) playToggleOn()
-            else playToggleOff()
-          }
-        },
-      })
-      controls.bind(currentPlayback)
-
-      playBtn.disabled = false
       attachUiSound(playBtn, { click: false })
       playBtn.addEventListener('click', () => {
         if (!currentPlayback) return
@@ -143,6 +175,23 @@ setupBeatmapForm(form, async (query) => {
           currentPlayback.play()
         }
       })
+
+      modsController = setupMods(
+        resultEl,
+        () => {
+          rebuildPlayback({
+            timeMs: currentPlayback?.getMapTimeMs() ?? 0,
+            playing: currentPlayback?.isPlaying() ?? false,
+            rate: currentPlayback?.getSpeed() ?? 1,
+          })
+        },
+        (rate) => {
+          currentPlayback?.setSpeed(rate)
+        },
+      )
+
+      rebuildPlayback()
+      playBtn.disabled = false
     } catch (err) {
       parseSummaryEl.textContent =
         err instanceof Error ? `Beatmap file parse failed: ${err.message}` : 'Beatmap file parse failed.'

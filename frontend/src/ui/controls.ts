@@ -1,9 +1,11 @@
 import type { PlaybackHandle } from '../render/renderLoop'
-import { attachUiSound } from './sound'
 
 export interface Controls {
   onTick: (mapTimeMs: number, maxTimeMs: number) => void
-  bind: (playback: PlaybackHandle) => void
+  // Takes a getter rather than a fixed handle, since mods (Easy/HardRock) rebuild the
+  // underlying playback engine — the seek bar/volume slider should keep controlling
+  // whatever the current one is, without needing to be re-bound each time.
+  bind: (getPlayback: () => PlaybackHandle | null) => void
 }
 
 function formatMs(ms: number): string {
@@ -16,7 +18,6 @@ function formatMs(ms: number): string {
 export function setupControls(container: HTMLElement): Controls {
   const seekBar = container.querySelector<HTMLInputElement>('#seek-bar')!
   const timeLabel = container.querySelector<HTMLSpanElement>('#time-label')!
-  const speedButtons = Array.from(container.querySelectorAll<HTMLButtonElement>('.speed-btn'))
   const volumeSlider = container.querySelector<HTMLInputElement>('#volume-slider')!
 
   let dragging = false
@@ -33,26 +34,17 @@ export function setupControls(container: HTMLElement): Controls {
       if (!dragging) seekBar.value = String(mapTimeMs)
       timeLabel.textContent = `${formatMs(mapTimeMs)} / ${formatMs(maxTimeMs)}`
     },
-    bind(playback) {
-      seekBar.max = String(playback.getMaxTimeMs())
+    bind(getPlayback) {
+      const playback = getPlayback()
+      if (playback) seekBar.max = String(playback.getMaxTimeMs())
 
       seekBar.addEventListener('input', () => {
-        playback.seek(Number(seekBar.value))
+        getPlayback()?.seek(Number(seekBar.value))
       })
 
-      speedButtons.forEach((btn) => {
-        attachUiSound(btn)
-        btn.addEventListener('click', () => {
-          const rate = Number(btn.dataset.speed)
-          playback.setSpeed(rate)
-          speedButtons.forEach((b) => b.classList.toggle('active', b === btn))
-        })
-      })
-
-      playback.setVolume(Number(volumeSlider.value) / 100)
-      volumeSlider.addEventListener('input', () => {
-        playback.setVolume(Number(volumeSlider.value) / 100)
-      })
+      const applyVolume = () => getPlayback()?.setVolume(Number(volumeSlider.value) / 100)
+      applyVolume()
+      volumeSlider.addEventListener('input', applyVolume)
     },
   }
 }

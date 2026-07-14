@@ -1,4 +1,4 @@
-import { Slider, Spinner, type StandardBeatmap, type StandardHitObject } from 'osu-standard-stable'
+import { Slider, Spinner, StandardHidden, type StandardBeatmap, type StandardHitObject } from 'osu-standard-stable'
 import { computeTransform } from './canvas'
 import { DEFAULT_COMBO_COLORS, paletteFromBeatmap } from './combo'
 import { drawHitCircle, drawApproachCircle } from './renderCircle'
@@ -16,6 +16,7 @@ export interface PlaybackHandle {
   pause(): void
   seek(timeMs: number): void
   setSpeed(rate: number): void
+  getSpeed(): number
   setVolume(volume: number): void
   isPlaying(): boolean
   getMapTimeMs(): number
@@ -37,6 +38,7 @@ export function startPlayback(
   beatmap: StandardBeatmap,
   audio: AudioController,
   skin: LoadedSkin | undefined,
+  hidden: boolean,
   options: PlaybackOptions = {},
 ): PlaybackHandle {
   const ctx = canvas.getContext('2d')!
@@ -55,6 +57,33 @@ export function startPlayback(
   let lastFrameTime = performance.now()
   let rafId = 0
 
+  // Opacity during the object's active lifetime (fade-in through endTime), ignoring the
+  // brief exit fade after — separated out so the exit fade (below) can start from
+  // whatever this actually was at endTime, instead of assuming it was fully visible.
+  // Under Hidden, circles/slider-heads fade in faster then immediately fade back out,
+  // becoming invisible well before their hit time; sliders/spinners stay visible once
+  // their active (ball-tracking) phase starts, even under Hidden.
+  function baseOpacityAt(obj: StandardHitObject, appearAt: number, endTime: number, t: number): number {
+    if (endTime > obj.startTime && t >= obj.startTime) return 1
+
+    const fadeInEnd = appearAt + obj.timeFadeIn
+    if (t < fadeInEnd) return (t - appearAt) / obj.timeFadeIn
+
+    if (hidden && !(obj instanceof Spinner)) {
+      const fadeOutDuration = obj.timePreempt * StandardHidden.FADE_OUT_DURATION_MULTIPLIER
+      return 1 - (t - fadeInEnd) / fadeOutDuration
+    }
+    return 1
+  }
+
+  function computeOpacity(obj: StandardHitObject, appearAt: number, endTime: number): number {
+    if (mapTimeMs > endTime) {
+      const opacityAtEnd = Math.max(0, Math.min(1, baseOpacityAt(obj, appearAt, endTime, endTime)))
+      return opacityAtEnd * (1 - (mapTimeMs - endTime) / FADE_OUT_MS)
+    }
+    return baseOpacityAt(obj, appearAt, endTime, mapTimeMs)
+  }
+
   function drawObject(obj: StandardHitObject) {
     const endTime = endTimeOf(obj)
     const appearAt = obj.startTime - obj.timePreempt
@@ -64,13 +93,7 @@ export function startPlayback(
     const color = palette[obj.comboIndexWithOffsets % palette.length]
     const label = String(obj.currentComboIndex + 1)
 
-    let opacity = 1
-    if (mapTimeMs < appearAt + obj.timeFadeIn) {
-      opacity = (mapTimeMs - appearAt) / obj.timeFadeIn
-    } else if (mapTimeMs > endTime) {
-      opacity = 1 - (mapTimeMs - endTime) / FADE_OUT_MS
-    }
-    opacity = Math.max(0, Math.min(1, opacity))
+    const opacity = Math.max(0, Math.min(1, computeOpacity(obj, appearAt, endTime)))
     ctx.globalAlpha = opacity
 
     if (obj instanceof Spinner) {
@@ -100,16 +123,18 @@ export function startPlayback(
         )
       }
 
-      drawHitCircle(
-        ctx,
-        obj.stackedStartPosition.x,
-        obj.stackedStartPosition.y,
-        obj.radius,
-        transform,
-        color,
-        label,
-        skin,
-      )
+      if (mapTimeMs <= obj.startTime) {
+        drawHitCircle(
+          ctx,
+          obj.stackedStartPosition.x,
+          obj.stackedStartPosition.y,
+          obj.radius,
+          transform,
+          color,
+          label,
+          skin,
+        )
+      }
 
       if (mapTimeMs >= obj.startTime && mapTimeMs <= endTime) {
         const progress = (mapTimeMs - obj.startTime) / obj.duration
@@ -196,6 +221,9 @@ export function startPlayback(
     setSpeed(rate: number) {
       speed = rate
       audio.setRate(rate)
+    },
+    getSpeed() {
+      return speed
     },
     setVolume(volume: number) {
       audio.setVolume(volume)

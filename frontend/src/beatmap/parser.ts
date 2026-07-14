@@ -11,9 +11,12 @@ export function parseBeatmap(osuFileText: string): Beatmap {
 
 // Converts the generic decoded beatmap into an osu!standard-specific one. This is what
 // computes slider paths/durations and per-object timing/combo data properly, rather than
-// us re-deriving it by hand.
-export function toStandardBeatmap(beatmap: Beatmap): StandardBeatmap {
-  return ruleset.applyToBeatmap(beatmap)
+// us re-deriving it by hand. `modsBitwise` (see osu-classes' ModBitwise enum) applies
+// difficulty-changing mods like Easy/HardRock — this never mutates the passed-in
+// `beatmap`, so it's safe to call again with a different combination.
+export function toStandardBeatmap(beatmap: Beatmap, modsBitwise = 0): StandardBeatmap {
+  const mods = ruleset.createModCombination(modsBitwise)
+  return ruleset.applyToBeatmapWithMods(beatmap, mods)
 }
 
 export interface ParseSummary {
