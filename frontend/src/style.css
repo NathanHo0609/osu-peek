@@ -31,7 +31,7 @@ body {
 }
 
 #app {
-  max-width: 720px;
+  max-width: min(94vw, 1000px);
   margin: 0 auto;
   padding: 48px 20px;
   text-align: center;
@@ -125,6 +125,49 @@ button {
   display: block;
   font-size: 14px;
   margin-bottom: 4px;
+}
+
+.api-credentials {
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-2);
+  padding: 10px 14px;
+  margin: 20px 0;
+  font-size: 14px;
+}
+
+.api-credentials summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.api-credentials input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  color: var(--text-h);
+  font-size: 14px;
+}
+
+.api-credentials input:focus {
+  outline: none;
+  border-color: var(--accent-2);
+}
+
+.api-credentials .slant-btn {
+  margin-top: 8px;
+  padding: 6px 16px;
+  font-size: 13px;
+}
+
+.api-credentials a {
+  color: var(--accent-2);
 }
 
 #result {

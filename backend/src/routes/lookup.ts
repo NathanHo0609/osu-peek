@@ -1,9 +1,28 @@
-import { Router } from 'express'
+import { Router, type Request } from 'express'
 import { getOsuAccessToken } from '../osuAuth.js'
 import { TtlCache } from '../cache.js'
 
 const router = Router()
 const lookupCache = new TtlCache<NormalizedBeatmap>(10 * 60 * 1000)
+
+// Each visitor brings their own osu! OAuth app credentials via headers, so no one
+// shares (or exhausts) anyone else's API quota. Falls back to the server's own .env
+// credentials when none are provided, which keeps local development simple.
+function resolveCredentials(req: Request): { clientId: string; clientSecret: string } | null {
+  const headerClientId = req.header('X-Osu-Client-Id')
+  const headerClientSecret = req.header('X-Osu-Client-Secret')
+  if (headerClientId && headerClientSecret) {
+    return { clientId: headerClientId, clientSecret: headerClientSecret }
+  }
+
+  const envClientId = process.env.OSU_CLIENT_ID
+  const envClientSecret = process.env.OSU_CLIENT_SECRET
+  if (envClientId && envClientSecret) {
+    return { clientId: envClientId, clientSecret: envClientSecret }
+  }
+
+  return null
+}
 
 interface NormalizedBeatmap {
   beatmapId: number
@@ -39,8 +58,8 @@ function parseOsuInput(input: string): { beatmapId?: string; beatmapsetId?: stri
   return {}
 }
 
-async function osuApiGet(path: string): Promise<any> {
-  const token = await getOsuAccessToken()
+async function osuApiGet(path: string, clientId: string, clientSecret: string): Promise<any> {
+  const token = await getOsuAccessToken(clientId, clientSecret)
   const response = await fetch(`https://osu.ppy.sh/api/v2${path}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
   })
@@ -79,6 +98,12 @@ router.get('/lookup', async (req, res) => {
     return
   }
 
+  const credentials = resolveCredentials(req)
+  if (!credentials) {
+    res.status(401).json({ error: 'Add your osu! API client ID/secret above before searching.' })
+    return
+  }
+
   const cacheKey = beatmapId ? `beatmap:${beatmapId}` : `beatmapset:${beatmapsetId}`
   const cached = lookupCache.get(cacheKey)
   if (cached) {
@@ -88,12 +113,13 @@ router.get('/lookup', async (req, res) => {
 
   try {
     let result: NormalizedBeatmap
+    const { clientId, clientSecret } = credentials
 
     if (beatmapId) {
-      const beatmap = await osuApiGet(`/beatmaps/${beatmapId}`)
+      const beatmap = await osuApiGet(`/beatmaps/${beatmapId}`, clientId, clientSecret)
       result = normalize(beatmap, beatmap.beatmapset)
     } else {
-      const beatmapset = await osuApiGet(`/beatmapsets/${beatmapsetId}`)
+      const beatmapset = await osuApiGet(`/beatmapsets/${beatmapsetId}`, clientId, clientSecret)
       const standardDiffs = (beatmapset.beatmaps ?? []).filter((b: any) => b.mode === 'osu')
       const chosen =
         [...standardDiffs].sort((a, b) => b.difficulty_rating - a.difficulty_rating)[0] ??
@@ -111,7 +137,7 @@ router.get('/lookup', async (req, res) => {
     res.json(result)
   } catch (err) {
     console.error(err)
-    res.status(502).json({ error: 'Failed to fetch data from osu!.' })
+    res.status(502).json({ error: 'Failed to fetch data from osu!. Double check your API credentials are correct.' })
   }
 })
 

@@ -49,7 +49,10 @@ export function startPlayback(
   options: PlaybackOptions = {},
 ): PlaybackHandle {
   const ctx = canvas.getContext('2d')!
-  const transform = computeTransform(canvas)
+  // Reserve enough margin for a hit circle/slider centered right at the playfield edge
+  // to render fully rather than clipping against the canvas bounds.
+  const edgeMargin = (beatmap.hitObjects[0]?.radius ?? 40) * 1.2
+  let transform = computeTransform(canvas, edgeMargin)
   // Beatmap-defined colors win (matches real osu!), then the loaded skin's, then our default palette.
   const palette =
     beatmap.colors.comboColors.length > 0
@@ -217,6 +220,7 @@ export function startPlayback(
   }
 
   function draw() {
+    transform = computeTransform(canvas, edgeMargin)
     ctx.fillStyle = '#0d0e14'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
     for (const obj of beatmap.hitObjects) drawObject(obj)

@@ -5,16 +5,33 @@ import { parseBeatmap, summarizeBeatmap, toStandardBeatmap } from './beatmap/par
 import { ModBitwise, type Beatmap } from 'osu-classes'
 import { AudioController } from './audio/audioController'
 import { startPlayback, type PlaybackHandle } from './render/renderLoop'
+import { fitCanvasToContainer } from './render/canvas'
 import type { StandardBeatmap } from 'osu-standard-stable'
 import { setupControls, type Controls } from './ui/controls'
 import { setupSkinUpload } from './ui/skinUpload'
 import type { LoadedSkin } from './skin/skinLoader'
 import { setupMods, type ModsController } from './ui/mods'
+import { setupApiCredentials } from './ui/apiCredentials'
 import { attachUiSound, playToggleOn, playToggleOff } from './ui/sound'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <h1>osu!Peek</h1>
   <p>Preview a beatmap's layout before you download it.</p>
+
+  <details class="api-credentials">
+    <summary>osu! API credentials (required, one-time setup)</summary>
+    <p class="muted">
+      Register a free OAuth app at
+      <a href="https://osu.ppy.sh/home/account/edit#new-oauth-application" target="_blank" rel="noopener">
+        osu.ppy.sh/home/account/edit
+      </a> (any name/URL works, no approval needed), then paste its Client ID and Client Secret below.
+      Stored only in this browser — never sent anywhere but this app's own backend.
+    </p>
+    <input id="osu-client-id" type="text" placeholder="Client ID" />
+    <input id="osu-client-secret" type="password" placeholder="Client Secret" />
+    <button id="save-credentials" class="slant-btn">Save</button>
+    <p id="credentials-status" class="muted"></p>
+  </details>
 
   <form id="beatmap-form">
     <input name="query" type="text" placeholder="Paste a beatmap or beatmapset URL, or an ID" size="50" />
@@ -36,6 +53,7 @@ const statusEl = document.querySelector<HTMLParagraphElement>('#status')!
 const resultEl = document.querySelector<HTMLDivElement>('#result')!
 
 attachUiSound(form.querySelector<HTMLButtonElement>('button[type="submit"]')!)
+setupApiCredentials(document.body)
 
 let currentSkin: LoadedSkin | null = null
 setupSkinUpload(
@@ -68,7 +86,7 @@ function renderResult(beatmap: BeatmapLookupResult): void {
     </ul>
     ${beatmap.difficultyCount ? `<p class="muted">${beatmap.difficultyCount} difficulties in this set — showing the hardest.</p>` : ''}
     <p id="parse-summary" class="muted">Parsing beatmap file...</p>
-    <canvas id="playfield" width="640" height="480"></canvas>
+    <canvas id="playfield"></canvas>
     <div class="playback-controls">
       <button id="play-btn" class="slant-btn" disabled>&#9654; Play</button>
       <input id="seek-bar" type="range" min="0" max="1000" value="0" />
@@ -198,6 +216,7 @@ setupBeatmapForm(form, async (query) => {
 
       currentParsedBeatmap = parsed
       currentCanvas = document.querySelector<HTMLCanvasElement>('#playfield')!
+      fitCanvasToContainer(currentCanvas)
       // If PreviewTime isn't set in the beatmap, osu! itself defaults to 40% into the track.
       const previewStartMs =
         parsed.general.previewTime >= 0 ? parsed.general.previewTime : summary.lastObjectTimeMs * 0.4
@@ -247,4 +266,10 @@ setupBeatmapForm(form, async (query) => {
   } catch (err) {
     statusEl.textContent = err instanceof Error ? err.message : 'Something went wrong.'
   }
+})
+
+window.addEventListener('resize', () => {
+  if (!currentCanvas) return
+  fitCanvasToContainer(currentCanvas)
+  if (currentPlayback) currentPlayback.seek(currentPlayback.getMapTimeMs())
 })

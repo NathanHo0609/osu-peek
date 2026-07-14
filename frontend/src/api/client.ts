@@ -1,3 +1,5 @@
+import { credentialHeaders } from './credentials'
+
 export interface BeatmapLookupResult {
   beatmapId: number
   beatmapsetId: number
@@ -19,7 +21,9 @@ export interface BeatmapLookupResult {
 const API_BASE = 'http://localhost:3001'
 
 export async function lookupBeatmap(query: string): Promise<BeatmapLookupResult> {
-  const response = await fetch(`${API_BASE}/api/lookup?query=${encodeURIComponent(query)}`)
+  const response = await fetch(`${API_BASE}/api/lookup?query=${encodeURIComponent(query)}`, {
+    headers: credentialHeaders(),
+  })
   const data = await response.json()
 
   if (!response.ok) {
